@@ -447,17 +447,23 @@ module ActiveRecord
       end
 
       def disable_referential_integrity_with_views #:nodoc:
-        if supports_disable_referential_integrity? then
-          execute(tables_without_views.collect { |name|
-            "ALTER TABLE #{quote_table_name(name)} DISABLE TRIGGER ALL"
-          }.join(";"))
+        table_names = tables_without_views.map {|name| quote_table_name(name) }
+
+        if supports_disable_referential_integrity?
+          begin
+            execute(table_names.map {|name| "ALTER TABLE #{name} DISABLE TRIGGER ALL" }.join(";"))
+          rescue
+            execute(table_names.map {|name| "ALTER TABLE #{name} DISABLE TRIGGER USER" }.join(";"))
+          end
         end
         yield
       ensure
-        if supports_disable_referential_integrity? then
-          execute(tables_without_views.collect { |name|
-            "ALTER TABLE #{quote_table_name(name)} ENABLE TRIGGER ALL"
-          }.join(";"))
+        if supports_disable_referential_integrity?
+          begin
+            execute(table_names.map {|name| "ALTER TABLE #{name} ENABLE TRIGGER ALL" }.join(";"))
+          rescue
+            execute(table_names.map {|name| "ALTER TABLE #{name} ENABLE TRIGGER USER" }.join(";"))
+          end
         end
       end
       alias_method_chain :disable_referential_integrity, :views
